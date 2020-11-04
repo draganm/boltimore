@@ -17,7 +17,7 @@ import (
 func TestAddRead(t *testing.T) {
 
 	t.Run("route variables", func(t *testing.T) {
-		b, err := boltimore.Open(t.TempDir())
+		b, err := boltimore.Open(t.TempDir(), nil)
 		require.NoError(t, err)
 
 		defer b.Close()
@@ -37,7 +37,7 @@ func TestAddRead(t *testing.T) {
 	})
 
 	t.Run("query values", func(t *testing.T) {
-		b, err := boltimore.Open(t.TempDir())
+		b, err := boltimore.Open(t.TempDir(), nil)
 		require.NoError(t, err)
 
 		defer b.Close()
@@ -71,7 +71,7 @@ func TestAddRead(t *testing.T) {
 	t.Run("handling of request and response", func(t *testing.T) {
 
 		t.Run("no input - no output", func(t *testing.T) {
-			b, err := boltimore.Open(t.TempDir())
+			b, err := boltimore.Open(t.TempDir(), nil)
 			require.NoError(t, err)
 
 			defer b.Close()
@@ -88,7 +88,7 @@ func TestAddRead(t *testing.T) {
 		})
 
 		t.Run("context input - no output", func(t *testing.T) {
-			b, err := boltimore.Open(t.TempDir())
+			b, err := boltimore.Open(t.TempDir(), nil)
 			require.NoError(t, err)
 
 			defer b.Close()
@@ -108,7 +108,7 @@ func TestAddRead(t *testing.T) {
 		})
 
 		t.Run("context and value input - no output", func(t *testing.T) {
-			b, err := boltimore.Open(t.TempDir())
+			b, err := boltimore.Open(t.TempDir(), nil)
 			require.NoError(t, err)
 
 			defer b.Close()
@@ -146,7 +146,7 @@ func TestAddRead(t *testing.T) {
 		})
 
 		t.Run("context and value input - error (nil returned) output", func(t *testing.T) {
-			b, err := boltimore.Open(t.TempDir())
+			b, err := boltimore.Open(t.TempDir(), nil)
 			require.NoError(t, err)
 
 			defer b.Close()
@@ -186,7 +186,7 @@ func TestAddRead(t *testing.T) {
 		})
 
 		t.Run("context and value input - error (generic error returned) output", func(t *testing.T) {
-			b, err := boltimore.Open(t.TempDir())
+			b, err := boltimore.Open(t.TempDir(), nil)
 			require.NoError(t, err)
 
 			defer b.Close()
@@ -226,7 +226,7 @@ func TestAddRead(t *testing.T) {
 		})
 
 		t.Run("context and value input - error (status code error returned) output", func(t *testing.T) {
-			b, err := boltimore.Open(t.TempDir())
+			b, err := boltimore.Open(t.TempDir(), nil)
 			require.NoError(t, err)
 
 			defer b.Close()
@@ -266,7 +266,7 @@ func TestAddRead(t *testing.T) {
 		})
 
 		t.Run("context and value input - value and error (nil error returned) output", func(t *testing.T) {
-			b, err := boltimore.Open(t.TempDir())
+			b, err := boltimore.Open(t.TempDir(), nil)
 			require.NoError(t, err)
 
 			defer b.Close()
@@ -313,7 +313,7 @@ func TestAddRead(t *testing.T) {
 		})
 
 		t.Run("context and value input - value and error (generic error returned) output", func(t *testing.T) {
-			b, err := boltimore.Open(t.TempDir())
+			b, err := boltimore.Open(t.TempDir(), nil)
 			require.NoError(t, err)
 
 			defer b.Close()
@@ -359,7 +359,7 @@ func TestAddRead(t *testing.T) {
 		})
 
 		t.Run("context and value input - value and error (status code error returned) output", func(t *testing.T) {
-			b, err := boltimore.Open(t.TempDir())
+			b, err := boltimore.Open(t.TempDir(), nil)
 			require.NoError(t, err)
 
 			defer b.Close()

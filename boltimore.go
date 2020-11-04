@@ -15,11 +15,19 @@ type Boltimore struct {
 	db *bolted.Bolted
 }
 
-func Open(dir string) (*Boltimore, error) {
+func Open(dir string, init func(tx bolted.WriteTx) error) (*Boltimore, error) {
 	db, err := bolted.Open(filepath.Join(dir, "db"), 0700)
 	if err != nil {
 		return nil, errors.Wrap(err, "while opening db")
 	}
+
+	if init != nil {
+		err = db.Write(init)
+		if err != nil {
+			return nil, errors.Wrap(err, "while executing init")
+		}
+	}
+
 	return &Boltimore{
 		Router: mux.NewRouter(),
 		db:     db,
