@@ -8,12 +8,14 @@ import (
 	"github.com/draganm/bolted"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	"github.com/robfig/cron/v3"
 )
 
 type Boltimore struct {
 	*mux.Router
 	db            *bolted.Bolted
 	initFunctions [](func(tx bolted.WriteTx) error)
+	cr            *cron.Cron
 }
 
 type Option func(b *Boltimore) error
@@ -29,9 +31,27 @@ func WriteEndpoint(method, path string, fn interface{}) Option {
 		return b.addWrite(method, path, fn)
 	})
 }
+
 func InitFunction(fn func(tx bolted.WriteTx) error) Option {
 	return Option(func(b *Boltimore) error {
 		b.initFunctions = append(b.initFunctions, fn)
+		return nil
+	})
+}
+
+func CronFunction(schedule string, fn func(db *bolted.Bolted) error) Option {
+	return Option(func(b *Boltimore) error {
+		_, err := b.cr.AddFunc(schedule, func() {
+			err := fn(b.db)
+			if err != nil {
+				// TODO error handler
+			}
+		})
+
+		if err != nil {
+			return err
+		}
+
 		return nil
 	})
 }
@@ -45,6 +65,7 @@ func Open(dir string, options ...Option) (*Boltimore, error) {
 	b := &Boltimore{
 		Router: mux.NewRouter(),
 		db:     db,
+		cr:     cron.New(),
 	}
 
 	for _, o := range options {
@@ -54,6 +75,8 @@ func Open(dir string, options ...Option) (*Boltimore, error) {
 			return nil, err
 		}
 	}
+
+	b.cr.Start()
 
 	for _, init := range b.initFunctions {
 		err = db.Write(init)
@@ -71,5 +94,6 @@ var boltedReadTxType = reflect.TypeOf((*bolted.ReadTx)(nil)).Elem()
 var errorType = reflect.TypeOf((*error)(nil)).Elem()
 
 func (b *Boltimore) Close() error {
+	b.cr.Stop()
 	return b.db.Close()
 }
