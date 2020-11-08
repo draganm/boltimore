@@ -150,7 +150,7 @@ func (b *Boltimore) addRead(method, path string, fn interface{}) error {
 
 		var res []reflect.Value
 
-		err := b.db.Read(func(tx bolted.ReadTx) error {
+		err := b.DB.Read(func(tx bolted.ReadTx) error {
 			inParams, err := inParams(r, tx)
 			if err != nil {
 				return err

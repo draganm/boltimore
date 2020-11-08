@@ -152,7 +152,7 @@ func (b *Boltimore) addWrite(method, path string, fn interface{}) error {
 
 		var res []reflect.Value
 
-		err := b.db.Write(func(tx bolted.WriteTx) error {
+		err := b.DB.Write(func(tx bolted.WriteTx) error {
 			inParams, err := inParams(r, tx)
 			if err != nil {
 				return err
