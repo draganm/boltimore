@@ -39,13 +39,10 @@ func InitFunction(fn func(tx bolted.WriteTx) error) Option {
 	})
 }
 
-func CronFunction(schedule string, fn func(db *bolted.Bolted) error) Option {
+func CronFunction(schedule string, fn func(db *bolted.Bolted)) Option {
 	return Option(func(b *Boltimore) error {
 		_, err := b.cr.AddFunc(schedule, func() {
-			err := fn(b.db)
-			if err != nil {
-				// TODO error handler
-			}
+			fn(b.db)
 		})
 
 		if err != nil {

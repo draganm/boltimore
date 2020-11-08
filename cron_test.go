@@ -12,9 +12,8 @@ import (
 func TestCron(t *testing.T) {
 	waitChan := make(chan bool)
 
-	b, err := boltimore.Open(t.TempDir(), boltimore.CronFunction("@every 1s", func(db *bolted.Bolted) error {
+	b, err := boltimore.Open(t.TempDir(), boltimore.CronFunction("@every 1s", func(db *bolted.Bolted) {
 		close(waitChan)
-		return nil
 	}))
 	require.NoError(t, err)
 	defer b.Close()
