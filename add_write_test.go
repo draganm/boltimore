@@ -40,19 +40,16 @@ func newTestWriter() *testWriter {
 func TestAddWrite(t *testing.T) {
 
 	t.Run("route variables", func(t *testing.T) {
-		b, err := boltimore.Open(t.TempDir(), nil)
+		executed := false
+		var xy string
+
+		b, err := boltimore.Open(t.TempDir(), boltimore.WriteEndpoint("POST", "/ping/{xy}", func(ctx context.Context, tx bolted.WriteTx) {
+			executed = true
+			xy = boltimore.RouteVariable(ctx, "xy")
+		}))
 		require.NoError(t, err)
 
 		defer b.Close()
-
-		executed := false
-		var xy string
-		err = b.AddWrite("POST", "/ping/{xy}", func(ctx context.Context, tx bolted.WriteTx) {
-			executed = true
-			xy = boltimore.RouteVariable(ctx, "xy")
-		})
-
-		require.NoError(t, err)
 
 		require.HTTPStatusCode(t, b.ServeHTTP, "POST", "/ping/z", nil, 201)
 		require.True(t, executed)
@@ -60,21 +57,17 @@ func TestAddWrite(t *testing.T) {
 	})
 
 	t.Run("query values", func(t *testing.T) {
-		b, err := boltimore.Open(t.TempDir(), nil)
-		require.NoError(t, err)
-
-		defer b.Close()
-
 		executed := false
 
 		var queryValues url.Values
 
-		err = b.AddWrite("POST", "/ping", func(ctx context.Context, tx bolted.WriteTx) {
+		b, err := boltimore.Open(t.TempDir(), boltimore.WriteEndpoint("POST", "/ping", func(ctx context.Context, tx bolted.WriteTx) {
 			executed = true
 			queryValues = boltimore.QueryValues(ctx)
-		})
-
+		}))
 		require.NoError(t, err)
+
+		defer b.Close()
 
 		tw := newTestWriter()
 		b.ServeHTTP(tw, &http.Request{
@@ -94,36 +87,28 @@ func TestAddWrite(t *testing.T) {
 	t.Run("handling of request and response", func(t *testing.T) {
 
 		t.Run("no input - no output", func(t *testing.T) {
-			b, err := boltimore.Open(t.TempDir(), nil)
+			executed := false
+			b, err := boltimore.Open(t.TempDir(), boltimore.WriteEndpoint("POST", "/ping", func(tx bolted.WriteTx) {
+				executed = true
+			}))
 			require.NoError(t, err)
 
 			defer b.Close()
-
-			executed := false
-			err = b.AddWrite("POST", "/ping", func(tx bolted.WriteTx) {
-				executed = true
-			})
-
-			require.NoError(t, err)
 
 			require.HTTPStatusCode(t, b.ServeHTTP, "POST", "/ping", nil, 201)
 			require.True(t, executed)
 		})
 
 		t.Run("context input - no output", func(t *testing.T) {
-			b, err := boltimore.Open(t.TempDir(), nil)
+			executed := false
+			contextSet := false
+			b, err := boltimore.Open(t.TempDir(), boltimore.WriteEndpoint("POST", "/ping", func(ctx context.Context, tx bolted.WriteTx) {
+				contextSet = ctx != nil
+				executed = true
+			}))
 			require.NoError(t, err)
 
 			defer b.Close()
-
-			executed := false
-			contextSet := false
-			err = b.AddWrite("POST", "/ping", func(ctx context.Context, tx bolted.WriteTx) {
-				contextSet = ctx != nil
-				executed = true
-			})
-
-			require.NoError(t, err)
 
 			require.HTTPStatusCode(t, b.ServeHTTP, "POST", "/ping", nil, 201)
 			require.True(t, executed)
@@ -131,11 +116,6 @@ func TestAddWrite(t *testing.T) {
 		})
 
 		t.Run("context and value input - no output", func(t *testing.T) {
-			b, err := boltimore.Open(t.TempDir(), nil)
-			require.NoError(t, err)
-
-			defer b.Close()
-
 			executed := false
 			contextSet := false
 
@@ -144,14 +124,14 @@ func TestAddWrite(t *testing.T) {
 			}
 
 			var input inp
-
-			err = b.AddWrite("POST", "/ping", func(ctx context.Context, tx bolted.WriteTx, i inp) {
+			b, err := boltimore.Open(t.TempDir(), boltimore.WriteEndpoint("POST", "/ping", func(ctx context.Context, tx bolted.WriteTx, i inp) {
 				contextSet = ctx != nil
 				executed = true
 				input = i
-			})
-
+			}))
 			require.NoError(t, err)
+
+			defer b.Close()
 
 			tw := newTestWriter()
 			b.ServeHTTP(tw, &http.Request{
@@ -169,11 +149,6 @@ func TestAddWrite(t *testing.T) {
 		})
 
 		t.Run("context and value input - error (nil returned) output", func(t *testing.T) {
-			b, err := boltimore.Open(t.TempDir(), nil)
-			require.NoError(t, err)
-
-			defer b.Close()
-
 			executed := false
 			contextSet := false
 
@@ -183,15 +158,16 @@ func TestAddWrite(t *testing.T) {
 
 			var input inp
 
-			err = b.AddWrite("POST", "/ping", func(ctx context.Context, tx bolted.WriteTx, i inp) error {
+			b, err := boltimore.Open(t.TempDir(), boltimore.WriteEndpoint("POST", "/ping", func(ctx context.Context, tx bolted.WriteTx, i inp) error {
 				contextSet = ctx != nil
 				executed = true
 				input = i
 
 				return nil
-			})
-
+			}))
 			require.NoError(t, err)
+
+			defer b.Close()
 
 			tw := newTestWriter()
 			b.ServeHTTP(tw, &http.Request{
@@ -209,11 +185,6 @@ func TestAddWrite(t *testing.T) {
 		})
 
 		t.Run("context and value input - error (generic error returned) output", func(t *testing.T) {
-			b, err := boltimore.Open(t.TempDir(), nil)
-			require.NoError(t, err)
-
-			defer b.Close()
-
 			executed := false
 			contextSet := false
 
@@ -223,15 +194,16 @@ func TestAddWrite(t *testing.T) {
 
 			var input inp
 
-			err = b.AddWrite("POST", "/ping", func(ctx context.Context, tx bolted.WriteTx, i inp) error {
+			b, err := boltimore.Open(t.TempDir(), boltimore.WriteEndpoint("POST", "/ping", func(ctx context.Context, tx bolted.WriteTx, i inp) error {
 				contextSet = ctx != nil
 				executed = true
 				input = i
 
 				return errors.New("some err")
-			})
-
+			}))
 			require.NoError(t, err)
+
+			defer b.Close()
 
 			tw := newTestWriter()
 			b.ServeHTTP(tw, &http.Request{
@@ -249,11 +221,6 @@ func TestAddWrite(t *testing.T) {
 		})
 
 		t.Run("context and value input - error (status code error returned) output", func(t *testing.T) {
-			b, err := boltimore.Open(t.TempDir(), nil)
-			require.NoError(t, err)
-
-			defer b.Close()
-
 			executed := false
 			contextSet := false
 
@@ -263,15 +230,16 @@ func TestAddWrite(t *testing.T) {
 
 			var input inp
 
-			err = b.AddWrite("POST", "/ping", func(ctx context.Context, tx bolted.WriteTx, i inp) error {
+			b, err := boltimore.Open(t.TempDir(), boltimore.WriteEndpoint("POST", "/ping", func(ctx context.Context, tx bolted.WriteTx, i inp) error {
 				contextSet = ctx != nil
 				executed = true
 				input = i
 
 				return boltimore.StatusCodeErr(404, "not found")
-			})
-
+			}))
 			require.NoError(t, err)
+
+			defer b.Close()
 
 			tw := newTestWriter()
 			b.ServeHTTP(tw, &http.Request{
@@ -289,11 +257,6 @@ func TestAddWrite(t *testing.T) {
 		})
 
 		t.Run("context and value input - value and error (nil error returned) output", func(t *testing.T) {
-			b, err := boltimore.Open(t.TempDir(), nil)
-			require.NoError(t, err)
-
-			defer b.Close()
-
 			executed := false
 			contextSet := false
 
@@ -307,7 +270,7 @@ func TestAddWrite(t *testing.T) {
 
 			var input inp
 
-			err = b.AddWrite("POST", "/ping", func(ctx context.Context, tx bolted.WriteTx, i inp) (outp, error) {
+			b, err := boltimore.Open(t.TempDir(), boltimore.WriteEndpoint("POST", "/ping", func(ctx context.Context, tx bolted.WriteTx, i inp) (outp, error) {
 				contextSet = ctx != nil
 				executed = true
 				input = i
@@ -315,9 +278,10 @@ func TestAddWrite(t *testing.T) {
 				return outp{
 					Bar: "baz",
 				}, nil
-			})
-
+			}))
 			require.NoError(t, err)
+
+			defer b.Close()
 
 			tw := newTestWriter()
 			b.ServeHTTP(tw, &http.Request{
@@ -336,11 +300,6 @@ func TestAddWrite(t *testing.T) {
 		})
 
 		t.Run("context and value input - value and error (generic error returned) output", func(t *testing.T) {
-			b, err := boltimore.Open(t.TempDir(), nil)
-			require.NoError(t, err)
-
-			defer b.Close()
-
 			executed := false
 			contextSet := false
 
@@ -354,7 +313,7 @@ func TestAddWrite(t *testing.T) {
 
 			var input inp
 
-			err = b.AddWrite("POST", "/ping", func(ctx context.Context, tx bolted.WriteTx, i inp) (outp, error) {
+			b, err := boltimore.Open(t.TempDir(), boltimore.WriteEndpoint("POST", "/ping", func(ctx context.Context, tx bolted.WriteTx, i inp) (outp, error) {
 				contextSet = ctx != nil
 				executed = true
 				input = i
@@ -362,9 +321,10 @@ func TestAddWrite(t *testing.T) {
 				return outp{
 					Bar: "baz",
 				}, errors.New("failed")
-			})
-
+			}))
 			require.NoError(t, err)
+
+			defer b.Close()
 
 			tw := newTestWriter()
 			b.ServeHTTP(tw, &http.Request{
@@ -382,11 +342,6 @@ func TestAddWrite(t *testing.T) {
 		})
 
 		t.Run("context and value input - value and error (status code error returned) output", func(t *testing.T) {
-			b, err := boltimore.Open(t.TempDir(), nil)
-			require.NoError(t, err)
-
-			defer b.Close()
-
 			executed := false
 			contextSet := false
 
@@ -400,7 +355,7 @@ func TestAddWrite(t *testing.T) {
 
 			var input inp
 
-			err = b.AddWrite("POST", "/ping", func(ctx context.Context, tx bolted.WriteTx, i inp) (outp, error) {
+			b, err := boltimore.Open(t.TempDir(), boltimore.WriteEndpoint("POST", "/ping", func(ctx context.Context, tx bolted.WriteTx, i inp) (outp, error) {
 				contextSet = ctx != nil
 				executed = true
 				input = i
@@ -408,9 +363,10 @@ func TestAddWrite(t *testing.T) {
 				return outp{
 					Bar: "baz",
 				}, boltimore.StatusCodeErr(201, "OK")
-			})
-
+			}))
 			require.NoError(t, err)
+
+			defer b.Close()
 
 			tw := newTestWriter()
 			b.ServeHTTP(tw, &http.Request{

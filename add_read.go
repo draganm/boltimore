@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (b *Boltimore) AddRead(method, path string, fn interface{}) error {
+func (b *Boltimore) addRead(method, path string, fn interface{}) error {
 	fnv := reflect.ValueOf(fn)
 	fnt := fnv.Type()
 
