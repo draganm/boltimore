@@ -18,7 +18,7 @@ type Boltimore struct {
 	initFunctions  [](func(tx bolted.WriteTx) error)
 	cr             *cron.Cron
 	errorListeners []func(context.Context, string, string, error)
-	w              *watcher.Watcher
+	Watcher        *watcher.Watcher
 }
 
 type Option func(b *Boltimore) error
@@ -66,7 +66,7 @@ func ErrorListener(fn func(context.Context, string, string, error)) Option {
 func ChangeWatcher(path string, fn func(db *bolted.Bolted)) Option {
 	return Option(func(b *Boltimore) error {
 		ch := make(chan struct{})
-		go b.w.WatchForChanges(context.Background(), path, func(c bolted.ReadTx) error {
+		go b.Watcher.WatchForChanges(context.Background(), path, func(c bolted.ReadTx) error {
 			ch <- struct{}{}
 			return nil
 		})
@@ -88,10 +88,10 @@ func Open(dir string, options ...Option) (*Boltimore, error) {
 	}
 
 	b := &Boltimore{
-		Router: mux.NewRouter(),
-		DB:     db,
-		cr:     cron.New(),
-		w:      w,
+		Router:  mux.NewRouter(),
+		DB:      db,
+		cr:      cron.New(),
+		Watcher: w,
 	}
 
 	for _, o := range options {
