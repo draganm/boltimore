@@ -21,12 +21,10 @@ func (b *Boltimore) addRead(method, path string, fn interface{}) error {
 
 	var inParams func(r *http.Request, wtx bolted.ReadTx) ([]reflect.Value, error)
 
-	var createContext = func(r *http.Request) reflect.Value {
-		ctx := context.WithValue(r.Context(), boltimoreCtx, &BoltimoreContext{
+	var createContext = func(r *http.Request) context.Context {
+		return context.WithValue(r.Context(), boltimoreCtx, &BoltimoreContext{
 			req: r,
 		})
-		return reflect.ValueOf(ctx)
-
 	}
 
 	var hasInput = false
@@ -34,7 +32,6 @@ func (b *Boltimore) addRead(method, path string, fn interface{}) error {
 	switch fnt.NumIn() {
 	case 0:
 		return errors.New("function must accept at least one argument")
-		// return errors.New("function must accept at least context.Context as an argument")
 	case 1:
 		if !fnt.In(0).AssignableTo(boltedReadTxType) {
 			return errors.New("function must accept bolted.ReadTx as the first argument")
@@ -50,7 +47,7 @@ func (b *Boltimore) addRead(method, path string, fn interface{}) error {
 			return errors.New("function must accept bolted.ReadTx as the second argument")
 		}
 		inParams = func(r *http.Request, wtx bolted.ReadTx) ([]reflect.Value, error) {
-			return []reflect.Value{createContext(r), reflect.ValueOf(wtx)}, nil
+			return []reflect.Value{reflect.ValueOf(createContext(r)), reflect.ValueOf(wtx)}, nil
 		}
 	case 3:
 		if !fnt.In(0).AssignableTo(contextType) {
@@ -68,7 +65,7 @@ func (b *Boltimore) addRead(method, path string, fn interface{}) error {
 				return nil, err
 			}
 
-			return []reflect.Value{createContext(r), reflect.ValueOf(wtx), reqInstance.Elem()}, nil
+			return []reflect.Value{reflect.ValueOf(createContext(r)), reflect.ValueOf(wtx), reqInstance.Elem()}, nil
 		}
 
 	default:
@@ -137,7 +134,6 @@ func (b *Boltimore) addRead(method, path string, fn interface{}) error {
 				return err
 			}
 
-			// w.WriteHeader(201)
 			return nil
 		}
 
@@ -147,19 +143,33 @@ func (b *Boltimore) addRead(method, path string, fn interface{}) error {
 
 	b.Router.Methods(method).Path(path).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if hasInput && !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+			b.onError(createContext(r), method, path, errors.New("unexpected Content-Type"))
 			http.Error(w, "request must be JSON", 400)
 			return
 		}
 
-		b.db.Read(func(tx bolted.ReadTx) error {
+		var res []reflect.Value
+
+		err := b.db.Read(func(tx bolted.ReadTx) error {
 			inParams, err := inParams(r, tx)
 			if err != nil {
-				http.Error(w, "internal server error", 500)
 				return err
 			}
-			res := fnv.Call(inParams)
-			return writeResponse(res, w)
+
+			res = fnv.Call(inParams)
+			return nil
 		})
+
+		if err != nil {
+			b.onError(createContext(r), method, path, err)
+			http.Error(w, "internal server error", 500)
+			return
+		}
+
+		err = writeResponse(res, w)
+		if err != nil {
+			b.onError(createContext(r), method, path, err)
+		}
 
 	})
 

@@ -13,9 +13,10 @@ import (
 
 type Boltimore struct {
 	*mux.Router
-	db            *bolted.Bolted
-	initFunctions [](func(tx bolted.WriteTx) error)
-	cr            *cron.Cron
+	db             *bolted.Bolted
+	initFunctions  [](func(tx bolted.WriteTx) error)
+	cr             *cron.Cron
+	errorListeners []func(context.Context, string, string, error)
 }
 
 type Option func(b *Boltimore) error
@@ -49,6 +50,13 @@ func CronFunction(schedule string, fn func(db *bolted.Bolted)) Option {
 			return err
 		}
 
+		return nil
+	})
+}
+
+func ErrorListener(fn func(context.Context, string, string, error)) Option {
+	return Option(func(b *Boltimore) error {
+		b.errorListeners = append(b.errorListeners, fn)
 		return nil
 	})
 }
@@ -93,4 +101,10 @@ var errorType = reflect.TypeOf((*error)(nil)).Elem()
 func (b *Boltimore) Close() error {
 	b.cr.Stop()
 	return b.db.Close()
+}
+
+func (b *Boltimore) onError(ctx context.Context, method, path string, err error) {
+	for _, el := range b.errorListeners {
+		el(ctx, method, path, err)
+	}
 }
