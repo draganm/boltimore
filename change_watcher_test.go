@@ -20,6 +20,15 @@ func TestChangeWatcher(t *testing.T) {
 
 	require.NoError(t, err)
 
+	for i := 0; i < 200; i++ {
+		if atomic.LoadInt64(&cnt) == 1 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	require.Equal(t, int64(1), atomic.LoadInt64(&cnt))
+
 	err = b.DB.Write(func(tx bolted.WriteTx) error {
 		return tx.CreateMap("/test")
 	})
