@@ -26,10 +26,11 @@ func TestChangeWatcher(t *testing.T) {
 
 	require.NoError(t, err)
 
-	for i := 0; i < 50; i++ {
-		if atomic.LoadInt64(&cnt) != 2 {
-			time.Sleep(10 * time.Millisecond)
+	for i := 0; i < 200; i++ {
+		if atomic.LoadInt64(&cnt) == 2 {
+			break
 		}
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	require.Equal(t, int64(2), atomic.LoadInt64(&cnt))
