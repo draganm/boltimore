@@ -15,7 +15,7 @@ import (
 type Boltimore struct {
 	*mux.Router
 	DB             *bolted.Bolted
-	initFunctions  [](func(tx bolted.WriteTx) error)
+	dbFunctions    [](func(db *bolted.Bolted) error)
 	cr             *cron.Cron
 	errorListeners []func(context.Context, string, string, error)
 	Watcher        *watcher.Watcher
@@ -37,7 +37,18 @@ func WriteEndpoint(method, path string, fn interface{}) Option {
 
 func InitFunction(fn func(tx bolted.WriteTx) error) Option {
 	return Option(func(b *Boltimore) error {
-		b.initFunctions = append(b.initFunctions, fn)
+		b.dbFunctions = append(b.dbFunctions, func(db *bolted.Bolted) error {
+			return db.Write(func(tx bolted.WriteTx) error {
+				return fn(tx)
+			})
+		})
+		return nil
+	})
+}
+
+func DBFunction(fn func(db *bolted.Bolted) error) Option {
+	return Option(func(b *Boltimore) error {
+		b.dbFunctions = append(b.dbFunctions, fn)
 		return nil
 	})
 }
@@ -104,8 +115,8 @@ func Open(dir string, options ...Option) (*Boltimore, error) {
 
 	b.cr.Start()
 
-	for _, init := range b.initFunctions {
-		err = db.Write(init)
+	for _, dbf := range b.dbFunctions {
+		err = dbf(db)
 		if err != nil {
 			return nil, errors.Wrap(err, "while executing init")
 		}
