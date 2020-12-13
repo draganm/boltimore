@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/draganm/bolted"
+	"github.com/draganm/bolted/watcher"
 	"github.com/gorilla/mux"
 )
 
@@ -13,6 +14,7 @@ type RequestContext struct {
 	ResponseWriter  http.ResponseWriter
 	DB              *bolted.Bolted
 	responseWritten bool
+	Watcher         *watcher.Watcher
 }
 
 func (r *RequestContext) RouteVariable(name string) string {
@@ -37,6 +39,7 @@ func (b *Boltimore) addEndpoint(method, path string, action func(rc *RequestCont
 			Request:        req,
 			ResponseWriter: w,
 			DB:             b.DB,
+			Watcher:        b.Watcher,
 		}
 
 		err := action(rc)
