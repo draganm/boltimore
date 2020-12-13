@@ -36,6 +36,19 @@ func (r *RequestContext) RespondWithJSON(v interface{}) error {
 	return json.NewEncoder(r.ResponseWriter).Encode(v)
 }
 
+func (r *RequestContext) RespondWithStatusCodeAndJSON(statusCode int, v interface{}) error {
+	r.responseWritten = true
+	r.ResponseWriter.Header().Set("Content-Type", "application/json")
+	r.ResponseWriter.WriteHeader(statusCode)
+	return json.NewEncoder(r.ResponseWriter).Encode(v)
+}
+
+func (r *RequestContext) RespondWithError(error string, statusCode int) error {
+	r.responseWritten = true
+	http.Error(r.ResponseWriter, error, statusCode)
+	return nil
+}
+
 func (b *Boltimore) addEndpoint(method, path string, action func(rc *RequestContext) error) {
 
 	b.Router.Methods(method).Path(path).HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
