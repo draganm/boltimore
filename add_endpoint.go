@@ -28,6 +28,7 @@ func (r *RequestContext) ParseJSON(v interface{}) error {
 }
 
 func (r *RequestContext) RespondWithJSON(v interface{}) error {
+	r.responseWritten = true
 	r.ResponseWriter.Header().Set("Content-Type", "application/json")
 	return json.NewEncoder(r.ResponseWriter).Encode(v)
 }
