@@ -43,6 +43,12 @@ func (r *RequestContext) RespondWithStatusCodeAndJSON(statusCode int, v interfac
 	return json.NewEncoder(r.ResponseWriter).Encode(v)
 }
 
+func (r *RequestContext) RespondWithStatusCode(statusCode int) error {
+	r.responseWritten = true
+	r.ResponseWriter.WriteHeader(statusCode)
+	return nil
+}
+
 func (r *RequestContext) RespondWithError(error string, statusCode int) error {
 	r.responseWritten = true
 	http.Error(r.ResponseWriter, error, statusCode)
