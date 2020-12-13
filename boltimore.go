@@ -10,48 +10,52 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
+	"go.uber.org/zap"
 )
 
 type Boltimore struct {
 	*mux.Router
-	DB             *bolted.Bolted
-	cr             *cron.Cron
-	errorListeners []func(context.Context, string, string, error)
-	Watcher        *watcher.Watcher
+	DB      *bolted.Bolted
+	cr      *cron.Cron
+	Watcher *watcher.Watcher
+	logger  *zap.SugaredLogger
 }
 
 type Option func(b *Boltimore) error
 
-func ReadEndpoint(method, path string, fn interface{}) Option {
+func Endpoint(method, path string, fn func(rc *RequestContext) error) Option {
 	return Option(func(b *Boltimore) error {
-		return b.addRead(method, path, fn)
+		b.addEndpoint(method, path, fn)
+		return nil
 	})
 }
 
-func WriteEndpoint(method, path string, fn interface{}) Option {
-	return Option(func(b *Boltimore) error {
-		return b.addWrite(method, path, fn)
-	})
+type InitFunctionContext struct {
+	DB     *bolted.Bolted
+	Logger *zap.SugaredLogger
 }
 
-func InitFunction(fn func(tx bolted.WriteTx) error) Option {
+func InitFunction(fn func(ifc *InitFunctionContext) error) Option {
 	return Option(func(b *Boltimore) error {
-		return b.DB.Write(func(tx bolted.WriteTx) error {
-			return fn(tx)
+		return fn(&InitFunctionContext{
+			DB:     b.DB,
+			Logger: b.logger,
 		})
 	})
 }
 
-func DBInitFunction(fn func(db *bolted.Bolted) error) Option {
-	return Option(func(b *Boltimore) error {
-		return fn(b.DB)
-	})
+type CronFunctionContext struct {
+	DB     *bolted.Bolted
+	Logger *zap.SugaredLogger
 }
 
-func CronFunction(schedule string, fn func(db *bolted.Bolted)) Option {
+func CronFunction(schedule string, fn func(cfc *CronFunctionContext)) Option {
 	return Option(func(b *Boltimore) error {
 		_, err := b.cr.AddFunc(schedule, func() {
-			fn(b.DB)
+			fn(&CronFunctionContext{
+				DB:     b.DB,
+				Logger: b.logger.With("cronFunction", schedule),
+			})
 		})
 
 		if err != nil {
@@ -62,14 +66,12 @@ func CronFunction(schedule string, fn func(db *bolted.Bolted)) Option {
 	})
 }
 
-func ErrorListener(fn func(context.Context, string, string, error)) Option {
-	return Option(func(b *Boltimore) error {
-		b.errorListeners = append(b.errorListeners, fn)
-		return nil
-	})
+type ChangeWatcherContext struct {
+	DB     *bolted.Bolted
+	Logger *zap.SugaredLogger
 }
 
-func ChangeWatcher(path string, fn func(db *bolted.Bolted)) Option {
+func ChangeWatcher(path string, fn func(cwc *ChangeWatcherContext)) Option {
 	return Option(func(b *Boltimore) error {
 		ch := make(chan struct{})
 		go b.Watcher.WatchForChanges(context.Background(), path, func(c bolted.ReadTx) error {
@@ -79,9 +81,19 @@ func ChangeWatcher(path string, fn func(db *bolted.Bolted)) Option {
 
 		go func() {
 			for range ch {
-				fn(b.DB)
+				fn(&ChangeWatcherContext{
+					DB:     b.DB,
+					Logger: b.logger.With("changeWatcher", path),
+				})
 			}
 		}()
+		return nil
+	})
+}
+
+func ZapLogger(l *zap.SugaredLogger) Option {
+	return Option(func(b *Boltimore) error {
+		b.logger = l
 		return nil
 	})
 }
@@ -93,11 +105,17 @@ func Open(dir string, options ...Option) (*Boltimore, error) {
 		return nil, errors.Wrap(err, "while opening db")
 	}
 
+	logger, err := zap.NewProduction()
+	if err != nil {
+		return nil, errors.Wrap(err, "while creating initial ZAP logger")
+	}
+
 	b := &Boltimore{
 		Router:  mux.NewRouter(),
 		DB:      db,
 		cr:      cron.New(),
 		Watcher: w,
+		logger:  logger.Sugar(),
 	}
 
 	for _, o := range options {
@@ -119,12 +137,7 @@ var boltedReadTxType = reflect.TypeOf((*bolted.ReadTx)(nil)).Elem()
 var errorType = reflect.TypeOf((*error)(nil)).Elem()
 
 func (b *Boltimore) Close() error {
+	b.logger.Sync()
 	b.cr.Stop()
 	return b.DB.Close()
-}
-
-func (b *Boltimore) onError(ctx context.Context, method, path string, err error) {
-	for _, el := range b.errorListeners {
-		el(ctx, method, path, err)
-	}
 }

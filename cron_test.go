@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/draganm/bolted"
 	"github.com/draganm/boltimore"
 	"github.com/stretchr/testify/require"
 )
@@ -12,7 +11,7 @@ import (
 func TestCron(t *testing.T) {
 	waitChan := make(chan bool)
 
-	b, err := boltimore.Open(t.TempDir(), boltimore.CronFunction("@every 1s", func(db *bolted.Bolted) {
+	b, err := boltimore.Open(t.TempDir(), boltimore.CronFunction("@every 1s", func(cfc *boltimore.CronFunctionContext) {
 		close(waitChan)
 	}))
 	require.NoError(t, err)
