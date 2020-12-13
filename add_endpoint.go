@@ -2,11 +2,13 @@ package boltimore
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/watcher"
 	"github.com/gorilla/mux"
+	"go.uber.org/zap"
 )
 
 type RequestContext struct {
@@ -15,6 +17,7 @@ type RequestContext struct {
 	DB              *bolted.Bolted
 	responseWritten bool
 	Watcher         *watcher.Watcher
+	Logger          *zap.SugaredLogger
 }
 
 func (r *RequestContext) RouteVariable(name string) string {
@@ -41,6 +44,7 @@ func (b *Boltimore) addEndpoint(method, path string, action func(rc *RequestCont
 			ResponseWriter: w,
 			DB:             b.DB,
 			Watcher:        b.Watcher,
+			Logger:         b.logger.With("endpoint", fmt.Sprintf("%s %s", method, path)),
 		}
 
 		err := action(rc)

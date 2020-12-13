@@ -14,7 +14,7 @@ func TestChangeWatcher(t *testing.T) {
 
 	cnt := int64(0)
 
-	b, err := boltimore.Open(t.TempDir(), boltimore.ChangeWatcher("/test", func(db *bolted.Bolted) {
+	b, err := boltimore.Open(t.TempDir(), boltimore.ChangeWatcher("/test", func(cwc *boltimore.ChangeWatcherContext) {
 		atomic.AddInt64(&cnt, 1)
 	}))
 
