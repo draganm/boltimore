@@ -104,7 +104,10 @@ func Open(dir string, options ...Option) (*Boltimore, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "while opening db")
 	}
+	return NewWithExistingDBAndWatcher(db, w, options...)
+}
 
+func NewWithExistingDBAndWatcher(db *bolted.Bolted, w *watcher.Watcher, options ...Option) (*Boltimore, error) {
 	logger, err := zap.NewProduction()
 	if err != nil {
 		return nil, errors.Wrap(err, "while creating initial ZAP logger")
@@ -129,6 +132,7 @@ func Open(dir string, options ...Option) (*Boltimore, error) {
 	b.cr.Start()
 
 	return b, nil
+
 }
 
 var contextType = reflect.TypeOf((*context.Context)(nil)).Elem()
